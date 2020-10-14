@@ -1,4 +1,4 @@
-// 306145 NakajimaKazuki
+// 306145 K.Nakajima
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -8,6 +8,6 @@ int nextChar(void);
 
 FILE *fp;
 
-int main(){}
+int main(int argc,char *argv[]){}
 
 int nextChar(void){}

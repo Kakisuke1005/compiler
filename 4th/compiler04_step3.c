@@ -3,6 +3,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<ctype.h>
+#include<string.h>
 
 #define STR_SIZE 256
 
@@ -76,6 +77,19 @@ void writeStr(char **p, char c){
 }
 
 int binaryToken2int(char *p){
-	int val;
+	int val=0;
+	int tmp;
+	int binary=atoi(p);
+	int base=1;
+	while(binary>0){
+		tmp=binary%10;
+		if((tmp!=1)&&(tmp!=0)){
+			return -1;
+		}
+    val+=tmp*base;
+    binary=binary/10;
+    base=base*2;
+  }
+
 	return val;
 }

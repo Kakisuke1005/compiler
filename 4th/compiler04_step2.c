@@ -8,7 +8,6 @@
 
 int nextChar(void);
 char* nextBinaryToken(void);
-int binaryToken2int(char *p);
 void writeStr(char **p, char c);
 
 FILE *fp;
@@ -72,5 +71,3 @@ void writeStr(char **p, char c){
 	**p=c;
 	(*p)++;
 }
-
-int binaryToken2int(char *p){}

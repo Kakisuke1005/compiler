@@ -1,0 +1,5 @@
+first = (123 + 45)
+second = first * 6
+third = (second / 7) - 8
+$ third
+

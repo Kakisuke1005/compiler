@@ -13,13 +13,16 @@
 #define STR(var) #var
 
 typedef enum {
-	Plus, Assign,
+	Plus,Minus,Multi,Div,
+	LParen,RParen, 
+	Assign,
 	Digit, /* 0-9 */
 	Letter, /* _, a - z, A - Z */
 	IntNum, /* integer */
 	Variable, /* variable */
 	EOFToken, NULLToken, /* EOF, NULL */
-	Other /* 上記のいずれでもない */
+	Other, /* 上記のいずれでもない */
+	OutPut // 出力記号'$'
 } Kind;
 
 /** トークン **/
@@ -47,16 +50,21 @@ int _depth = 0;
 
 // 構文解析
 void program(void);
-void expresion(void);
+void statment(void);
+void expression(void);
 void term(void);
 void factor(void);
 void evaluate(Kind kind);
 void copyToken(Token *to,Token *from);
 bool checkToken(Token *t,Kind kind);
+bool checkTable(SymbolTable *st,Token t); // 記号表に要素があるか調べる
+Token getTable(SymbolTable *st,char *pStr); // 記号表の要素を入手する
+bool checkStr(char str1[],char str2[]);
 
 // 記号表
 void initializeTable(SymbolTable *st); /* 記号表の初期化 */
 void addTable(SymbolTable *st, Token t); /* 記号表にトークンを追加する */
+void updateTable(SymbolTable *st,Token t);
 void printTable(SymbolTable *st);
 
 void initializeCharKind(void);
@@ -68,6 +76,9 @@ Token pop(void);
 void initializeStack(void);
 void printStack(void);
 void printToken(Token *t);
+#ifdef VERBOSE
+void _printIndent();
+#endif
 
 int main(int argc,char *argv[]){
 	/* 文字種表charKindの初期化 */
@@ -101,14 +112,260 @@ int main(int argc,char *argv[]){
 		printf("file \"%s\" is opened.\n", argv[1]);
 #endif
 	}
-	
+
+	// 構文解析
+	token = nextToken();
+	program();
+	if (!checkToken(&token, EOFToken)) {
+		printf("error: token(s) remaining\n");
+		exit(EXIT_SUCCESS);
+	}
+
+#ifdef VERBOSE
+	printf("stack:\n");
+	printStack();
+	/* 記号表を表示 */
+	printf("symbol table:\n");
+	printTable(&STable);
+#endif
+
+	fclose(fp);
+#ifdef VERBOSE
+	printf("file \"%s\" is closed.\n", argv[1]);
+#endif
+
 }
 
-void program(void){}
-void expresion(void){}
-void term(void){}
-void factor(void){}
-void evaluate(Kind kind){}
+void program(void){
+#ifdef VERBOSE
+	_printIndent(); printf("-> %s, ", __func__); printToken(&token);
+	_depth++;
+#endif
+
+	statment();
+	while(!checkToken(&token, EOFToken)){
+		//token=nextToken();
+		statment();
+	}
+
+#ifdef VERBOSE
+	_depth--;
+	_printIndent(); printf("<- %s\n", __func__);
+#endif
+}
+
+void statment(void){
+#ifdef VERBOSE
+	_printIndent(); printf("-> %s, ", __func__); printToken(&token);
+	_depth++;
+#endif
+
+	Token tmp;
+	Token calresult;
+	switch(token.kind){
+		case Variable:
+			copyToken(&tmp,&token);
+			token=nextToken();
+			if(!checkToken(&token,Assign)){
+				printf("error: '=' is expected.\n");
+				exit(EXIT_SUCCESS);
+			}
+			token=nextToken();
+			expression();
+
+			calresult=pop();
+
+			tmp.kind=calresult.kind;
+			tmp.val=calresult.val;
+
+			if(!checkTable(&STable,tmp)){
+				addTable(&STable,tmp);
+			}else{
+				updateTable(&STable,tmp);
+			}
+		break;
+		case OutPut:
+			token=nextToken();
+			expression();
+
+			calresult=pop();
+
+			printf("%d\n", calresult.val);
+		break;
+		default:
+			printf("error: %s\n",token.str);
+			//printToken(&token);
+			exit(EXIT_SUCCESS);
+		break;
+	}
+
+#ifdef VERBOSE
+	_depth--;
+	_printIndent(); printf("<- %s\n", __func__);
+#endif
+}
+
+void expression(void){
+#ifdef VERBOSE
+	_printIndent(); printf("-> %s, ", __func__); printToken(&token);
+	_depth++;
+#endif
+
+	Kind operator;
+	term();
+	switch(token.kind){
+		case Plus:
+		case Minus:
+			operator=token.kind;
+			token=nextToken();
+			term();
+			evaluate(operator);
+		break;
+		default:
+		break;
+	}
+
+#ifdef VERBOSE
+	_depth--;
+	_printIndent(); printf("<- %s\n", __func__);
+#endif
+}
+
+void term(void){
+#ifdef VERBOSE
+	_printIndent(); printf("-> %s, ", __func__); printToken(&token);
+	_depth++;
+#endif
+
+	Kind operator;
+	factor();
+	switch(token.kind){
+		case Multi:
+		case Div:
+			operator=token.kind;
+			token=nextToken();
+			factor();
+			evaluate(operator);
+		break;
+		default:
+		break;
+	}
+
+#ifdef VERBOSE
+	_depth--;
+	_printIndent(); printf("<- %s\n", __func__);
+#endif
+}
+
+void factor(void){
+#ifdef VERBOSE
+	_printIndent(); printf("-> %s, ", __func__); printToken(&token);
+	_depth++;
+#endif
+
+	Token tmp;
+
+	switch(token.kind){
+		case IntNum:
+			push(token);
+		break;
+		case Variable:
+			tmp=getTable(&STable,token.str);
+			if(tmp.kind==NULLToken){
+				//printTable(&STable);
+				//printToken(&token);
+				printf("error: \"%s\" is not in the symbol table\n", token.str);
+				exit(EXIT_SUCCESS);
+			}
+			push(tmp);
+		break;
+		case LParen:
+			token=nextToken();
+			expression();
+			if(token.kind!=RParen){
+				//printToken(&token);
+				printf("error: ')' is expected\n");
+				exit(EXIT_SUCCESS);
+			}
+		break;
+		default:
+			//printf("error: %s\n",token.str);
+		break;
+	}
+	token=nextToken();
+#ifdef VERBOSE
+	_depth--;
+	_printIndent(); printf("<- %s\n", __func__);
+#endif
+}
+
+void evaluate(Kind kind){
+	Token t1,t2,tmp={NULLToken,"",0};
+
+	t2=pop();
+	t1=pop();
+	switch(kind){
+		case Plus:
+			tmp.val=t1.val+t2.val;
+			tmp.kind=IntNum;
+		break;
+		case Minus:
+			tmp.val=t1.val-t2.val;
+			tmp.kind=IntNum;
+		break;
+		case Multi:
+			tmp.val=t1.val*t2.val;
+			tmp.kind=IntNum;
+		break;
+		case Div:
+			if(t2.val==0){
+				printf("error: division by zero\n");
+				exit(EXIT_SUCCESS);
+			}else{
+				tmp.val=t1.val/t2.val;
+				tmp.kind=IntNum;
+			}
+		break;
+		default:
+		break;
+	}
+	push(tmp);
+}
+
+bool checkTable(SymbolTable *st,Token t){
+	Token *tmp=st->table;
+	while(tmp!=st->tail){
+		if(checkStr(tmp->str,t.str)){
+			return true;
+		}
+		tmp++;
+	}
+	return false;
+}
+
+bool checkStr(char str1[],char str2[]){
+	int i=0;
+	while(str1[i]==str2[i]){
+		if(str1[i]=='\0'){
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
+
+Token getTable(SymbolTable *st,char *pStr){
+	Token t={NULLToken,"",0};
+	Token *tmp=st->table;
+	while(tmp!=st->tail){
+		if(checkStr(tmp->str,pStr)){
+			t=*tmp;
+			break;
+		}
+		tmp++;
+	}
+	return t;
+}
 
 
 
@@ -129,7 +386,17 @@ void initializeTable(SymbolTable *st) {
 
 void addTable(SymbolTable *st, Token t) {
 	*(st->tail) = t;
-	*(st->tail)++; 
+	(st->tail)++; 
+}
+
+void updateTable(SymbolTable *st,Token t){
+	Token *tmp=st->table;
+	while(tmp!=st->tail){
+		if(checkStr(tmp->str,t.str)){
+			*tmp=t;
+		}
+		tmp++;
+	}
 }
 
 void printTable(SymbolTable *st) {
@@ -164,7 +431,13 @@ void initializeCharKind(void) {
 
 	/* 個々の文字の割当て */
 	charKind['+'] = Plus;
+	charKind['-']=Minus;
+	charKind['*']=Multi;
+	charKind['/']=Div;
 	charKind['='] = Assign;
+	charKind['(']=LParen;
+	charKind[')']=RParen;
+	charKind['$']=OutPut;
 }
 
 /*
@@ -224,6 +497,12 @@ Token nextToken(void) {
 			break;
 
 		case Plus:
+		case Minus:
+		case Multi:
+		case Div:
+		case OutPut:
+		case LParen:
+		case RParen:
 		case Assign:
 			token.kind = charKind[ch];
 			writeTokenStr(&pStr, (char)ch);
@@ -255,7 +534,7 @@ void push(Token t) {
 		stack[stack_num] = t;
 		stack_num++;
 	} else {
-		printf("stack overflow\n");
+		printf("error: stack overflow\n");
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -268,7 +547,7 @@ Token pop(void) {
 		t = stack[stack_num - 1];
 		stack_num--;
 	} else {
-		printf("stack underflow\n");
+		printf("error: stack underflow\n");
 		exit(EXIT_SUCCESS);
 	}
 
@@ -300,9 +579,15 @@ void printToken(Token *t) {
 	printf("%s, val=%d, kind=", t->str, t->val);
 	switch (t->kind) {
 		case Plus: printf("%s", STR(Plus)); break;
+		case Minus: printf("%s", STR(Minus)); break;
+		case Multi: printf("%s", STR(Multi)); break;
+		case Div: printf("%s", STR(Div)); break;
 		case Assign: printf("%s", STR(Assign)); break;
 		case IntNum: printf("%s", STR(IntNum)); break;
 		case Variable: printf("%s", STR(Variable)); break;
+		case OutPut: printf("%s", STR(OutPut)); break;
+		case LParen: printf("%s", STR(LParen)); break;
+		case RParen: printf("%s", STR(RParen)); break;
 		case EOFToken: printf("%s", STR(EOFToken)); break;
 		case NULLToken: printf("%s", STR(NULLToken)); break;
 		case Other: printf("%s", STR(Other)); break;

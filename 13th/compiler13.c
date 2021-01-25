@@ -767,7 +767,7 @@ void selection_statement(void){
             /* lesson13, <statement>の処理 */
             token=nextToken();
             statement();
-						token=nextToken();
+			token=nextToken();
  
             if (!checkToken(&token, Else)) {
                 // else文がないとき
@@ -775,8 +775,8 @@ void selection_statement(void){
                 //token=nextToken();
                 break;
             } else {
-								pos_jmp=generateCode2(JMP,-1)-1;
-								backPatch(position_jmpf,nextCodeCnt());
+				pos_jmp=generateCode2(JMP,-1)-1;
+				backPatch(position_jmpf,nextCodeCnt());
                 // else文があるとき
                 token=nextToken();
                 statement();

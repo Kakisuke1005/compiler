@@ -782,7 +782,7 @@ void selection_statement(void){
                 statement();
                 /* lesson13, バックパッチを用いたelse文の処理 */
                 backPatch(pos_jmp,nextCodeCnt());
-								token=nextToken();
+				token=nextToken();
             }
             break;
  
@@ -1465,3 +1465,4 @@ void printMemory(void) {
         printf("\n");
     }
 }
+ 
